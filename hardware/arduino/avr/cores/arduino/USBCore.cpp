@@ -64,6 +64,12 @@ const u8 STRING_PRODUCT[] PROGMEM = USB_PRODUCT;
 #    undef USB_MANUFACTURER
 #  endif
 #  define USB_MANUFACTURER "SparkFun"
+// Add Adafruit Manufacturer USB_VID
+#elif USB_VID == 0x239A
+#  if defined(USB_MANUFACTURER)
+#    undef USB_MANUFACTURER
+#  endif
+#define USB_MANUFACTURER "Adafruit"
 #elif !defined(USB_MANUFACTURER)
 // Fall through to unknown if no manufacturer name was provided in a macro
 #  define USB_MANUFACTURER "Unknown"

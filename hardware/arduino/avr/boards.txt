@@ -809,3 +809,31 @@ robotMotor.build.core=arduino
 robotMotor.build.variant=robot_motor
 robotMotor.build.extra_flags={build.usb_flags}
 
+## Adafruit Flora
+## --------------------------------------------------
+flora8.name=Adafruit Flora
+
+flora8.vid.0=0x239A
+flora8.pid.0=0x8004
+flora8.vid.1=0x239A
+flora8.pid.1=0x0004
+
+flora8.upload.tool=avr109
+flora8.upload.protocol=arduino
+flora8.upload.maximum_size=28672
+flora8.upload.maximum_data_size=2048
+flora8.upload.speed=115200
+
+flora8.bootloader.tool=avrdude
+flora8.bootloader.low_fuses=0xFF
+flora8.bootloader.high_fuses=0xD8
+flora8.bootloader.extended_fuses=0xCB
+flora8.bootloader.unlock_bits=0x3F
+flora8.bootloader.lock_bits=0x2F
+flora8.bootloader.file=caterina/Caterina-Flora8.hex
+
+flora8.build.mcu=atmega32u4
+flora8.build.f_cpu=8000000L
+flora8.build.board=AVR_FLORA
+flora8.build.core=arduino
+flora8.build.variant=flora
