@@ -837,3 +837,9 @@ flora8.build.f_cpu=8000000L
 flora8.build.board=AVR_FLORA
 flora8.build.core=arduino
 flora8.build.variant=flora
+
+flora8.build.usb_product="Flora"
+flora8.build.usb_manufacturer="Adafruit"
+flora8.build.vid=0x239A
+flora8.build.pid=0x8004
+flora8.build.extra_flags={build.usb_flags}
