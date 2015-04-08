@@ -52,10 +52,11 @@ import processing.app.SketchCode;
 import processing.app.SketchData;
 import processing.app.helpers.*;
 import processing.app.helpers.filefilters.OnlyDirs;
-import processing.app.packages.Library;
 import processing.app.packages.LibraryList;
 import processing.app.preproc.PdePreprocessor;
 import processing.app.legacy.PApplet;
+import processing.app.packages.LegacyUserLibrary;
+import processing.app.packages.UserLibrary;
 
 public class Compiler implements MessageConsumer {
 
@@ -113,9 +114,16 @@ public class Compiler implements MessageConsumer {
     
     // compile the program. errors will happen as a RunnerException
     // that will bubble up to whomever called build().
-    if (compiler.compile(verbose)) {
-      compiler.size(compiler.getBuildPreferences());
-      return primaryClassName;
+    try {
+      if (compiler.compile(verbose)) {
+        compiler.size(compiler.getBuildPreferences());
+        return primaryClassName;
+      }
+    } catch (RunnerException e) {
+      // when the compile fails, take this opportunity to show
+      // any helpful info possible before throwing the exception
+      compiler.adviseDuplicateLibraries();
+      throw e;
     }
     return null;
   }
@@ -361,11 +369,15 @@ public class Compiler implements MessageConsumer {
     includeFolders.add(prefs.getFile("build.core.path"));
     if (prefs.getFile("build.variant.path") != null)
       includeFolders.add(prefs.getFile("build.variant.path"));
-    for (Library lib : importedLibraries) {
-      if (verbose)
+    for (UserLibrary lib : importedLibraries) {
+      if (verbose) {
+        String legacy = "";
+        if (lib instanceof LegacyUserLibrary)
+          legacy = "(legacy)";
         System.out.println(I18n
             .format(_("Using library {0} in folder: {1} {2}"), lib.getName(),
-                    lib.getFolder(), lib.isLegacy() ? "(legacy)" : ""));
+                    lib.getInstalledFolder(), legacy));
+      }
       includeFolders.add(lib.getSrcFolder());
     }
     if (verbose)
@@ -377,7 +389,7 @@ public class Compiler implements MessageConsumer {
       String[] overrides = prefs.get("architecture.override_check").split(",");
       archs.addAll(Arrays.asList(overrides));
     }
-    for (Library lib : importedLibraries) {
+    for (UserLibrary lib : importedLibraries) {
       if (!lib.supportsArchitecture(archs)) {
         System.err.println(I18n
             .format(_("WARNING: library {0} claims to run on {1} "
@@ -423,8 +435,27 @@ public class Compiler implements MessageConsumer {
 
     // Hook runs at End of Compilation
     runActions("hooks.postbuild", prefs);
+    adviseDuplicateLibraries();
 
     return true;
+  }
+
+  private void adviseDuplicateLibraries() {
+    for (int i=0; i < importedDuplicateHeaders.size(); i++) {
+      System.out.println(I18n.format(_("Multiple libraries were found for \"{0}\""),
+        importedDuplicateHeaders.get(i)));
+      boolean first = true;
+      for (UserLibrary lib : importedDuplicateLibraries.get(i)) {
+        if (first) {
+          System.out.println(I18n.format(_(" Used: {0}"),
+            lib.getInstalledFolder().getPath()));
+          first = false;
+        } else {
+          System.out.println(I18n.format(_(" Not used: {0}"),
+            lib.getInstalledFolder().getPath()));
+        }
+      }
+    }
   }
 
   private PreferencesMap createBuildPreferences(String _buildPath,
@@ -890,21 +921,21 @@ public class Compiler implements MessageConsumer {
   // 2. compile the libraries, outputting .o files to:
   // <buildPath>/<library>/
   void compileLibraries(List<File> includeFolders) throws RunnerException, PreferencesMapException {
-    for (Library lib : importedLibraries) {
+    for (UserLibrary lib : importedLibraries) {
       compileLibrary(lib, includeFolders);
     }
   }
 
-  private void compileLibrary(Library lib, List<File> includeFolders)
+  private void compileLibrary(UserLibrary lib, List<File> includeFolders)
           throws RunnerException, PreferencesMapException {
     File libFolder = lib.getSrcFolder();
     File libBuildFolder = prefs.getFile(("build.path"), lib.getName());
-
+    
     if (lib.useRecursion()) {
       // libBuildFolder == {build.path}/LibName
       // libFolder      == {lib.path}/src
       recursiveCompileFilesInFolder(libBuildFolder, libFolder, includeFolders);
-
+      
     } else {
       // libFolder          == {lib.path}/
       // utilityFolder      == {lib.path}/utility
@@ -912,11 +943,11 @@ public class Compiler implements MessageConsumer {
       // utilityBuildFolder == {build.path}/LibName/utility
       File utilityFolder = new File(libFolder, "utility");
       File utilityBuildFolder = new File(libBuildFolder, "utility");
-
+      
       includeFolders.add(utilityFolder);
       compileFilesInFolder(libBuildFolder, libFolder, includeFolders);
       compileFilesInFolder(utilityBuildFolder, utilityFolder, includeFolders);
-
+      
       // other libraries should not see this library's utility/ folder
       includeFolders.remove(utilityFolder);
     }
@@ -1161,10 +1192,19 @@ public class Compiler implements MessageConsumer {
     // grab the imports from the code just preproc'd
 
     importedLibraries = new LibraryList();
+    importedDuplicateHeaders = new ArrayList<String>();
+    importedDuplicateLibraries = new ArrayList<LibraryList>();
     for (String item : preprocessor.getExtraImports()) {
-      Library lib = BaseNoGui.importToLibraryTable.get(item);
-      if (lib != null && !importedLibraries.contains(lib)) {
-        importedLibraries.add(lib);
+      LibraryList list = BaseNoGui.importToLibraryTable.get(item);
+      if (list != null) {
+        UserLibrary lib = list.peekFirst();
+        if (lib != null && !importedLibraries.contains(lib)) {
+          importedLibraries.add(lib);
+          if (list.size() > 1) {
+            importedDuplicateHeaders.add(item);
+            importedDuplicateLibraries.add(list);
+          }
+        }
       }
     }
 
@@ -1196,6 +1236,8 @@ public class Compiler implements MessageConsumer {
    * List of library folders.
    */
   private LibraryList importedLibraries;
+  private List<String>      importedDuplicateHeaders;
+  private List<LibraryList> importedDuplicateLibraries;
 
   /**
    * Map an error from a set of processed .java files back to its location
