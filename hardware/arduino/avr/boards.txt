@@ -818,11 +818,14 @@ flora8.pid.0=0x8004
 flora8.vid.1=0x239A
 flora8.pid.1=0x0004
 
-flora8.upload.tool=avr109
-flora8.upload.protocol=arduino
+flora8.upload.tool=avrdude
+flora8.upload.protocol=avr109
 flora8.upload.maximum_size=28672
 flora8.upload.maximum_data_size=2048
 flora8.upload.speed=115200
+flora8.upload.disable_flushing=true
+flora8.upload.use_1200bps_touch=true
+flora8.upload.wait_for_upload_port=true
 
 flora8.bootloader.tool=avrdude
 flora8.bootloader.low_fuses=0xFF
